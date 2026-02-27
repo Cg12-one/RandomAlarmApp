@@ -1,2 +1,3 @@
 kivy
 kivymd
+Cython==0.29.36
