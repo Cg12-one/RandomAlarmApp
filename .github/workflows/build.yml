@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04  # 使用更稳定的旧版本
     
     steps:
       - uses: actions/checkout@v4
@@ -17,88 +17,71 @@ jobs:
         with:
           python-version: '3.10'
       
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
-          sudo apt-get update -y
+          sudo apt-get update
           sudo apt-get install -y \
             git \
-            zip \
-            unzip \
-            openjdk-17-jdk \
-            python3-pip \
+            build-essential \
+            libsqlite3-dev \
+            libssl-dev \
+            libffi-dev \
             autoconf \
+            automake \
             libtool \
             pkg-config \
             zlib1g-dev \
             libncurses5-dev \
             libncursesw5-dev \
-            cmake \
-            libffi-dev \
-            libssl-dev \
-            libltdl-dev \
-            libtool-bin \
-            automake \
-            autopoint \
-            gettext \
-            patch \
-            wget \
-            curl \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            libgstreamer1.0 \
+            libgstreamer1.0-dev \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
-            libbz2-dev \
-            libreadline-dev \
-            libsqlite3-dev \
-            llvm \
-            libncursesw5-dev \
-            xz-utils \
-            tk-dev \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-plugins-ugly \
+            gstreamer1.0-libav \
+            gstreamer1.0-tools \
+            gstreamer1.0-x \
+            libxslt1-dev \
             libxml2-dev \
-            libxmlsec1-dev \
-            liblzma-dev
+            libffi-dev \
+            openjdk-17-jdk \
+            wget \
+            unzip
       
-      - name: Fix libtool macros
+      - name: Setup Android environment
         run: |
-          # 修复 libtool 宏问题
-          sudo cp /usr/share/aclocal/libtool.m4 /usr/share/aclocal/ltoptions.m4 2>/dev/null || true
-          sudo cp /usr/share/aclocal/libtool.m4 /usr/share/aclocal/ltsugar.m4 2>/dev/null || true
-          sudo cp /usr/share/aclocal/libtool.m4 /usr/share/aclocal/ltversion.m4 2>/dev/null || true
-          sudo cp /usr/share/aclocal/libtool.m4 /usr/share/aclocal/lt~obsolete.m4 2>/dev/null || true
+          # 设置环境变量
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
           
-          # 更新 autoconf
-          sudo autoconf --force || true
+          # 创建目录
+          mkdir -p $ANDROID_HOME
+          
+          # 下载 Android 命令行工具
+          cd /tmp
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          
+          # 接受许可证并安装必要组件
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-31" "build-tools;30.0.3"
+          
+          cd $GITHUB_WORKSPACE
       
-      - name: Install Python dependencies with specific versions
+      - name: Install Python packages
         run: |
-          # 强制卸载所有已安装的 Cython
-          pip uninstall -y Cython || true
-          
-          # 清理 pip 缓存
-          pip cache purge || true
-          
-          # 安装特定版本的 Cython
-          pip install --no-cache-dir Cython==0.29.36
-          
-          # 验证版本
-          cython --version
-          
-          # 安装 buildozer
-          pip install --no-cache-dir buildozer
+          python -m pip install --upgrade pip
+          pip install --upgrade setuptools wheel
+          pip install Cython==0.29.36
+          pip install buildozer
       
-      - name: Setup Buildozer
+      - name: Build with Buildozer
         run: |
-          # 清理任何旧构建
+          # 清理
           rm -rf .buildozer
-          rm -rf bin
           
           # 初始化
           buildozer init
@@ -107,28 +90,14 @@ jobs:
           sed -i 's/title = My Application/title = Random Alarm/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = randomalarm/' buildozer.spec
           sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/' buildozer.spec
-          sed -i 's/requirements = python3,kivy/requirements = python3,kivy,kivymd,Cython==0.29.36/' buildozer.spec
+          sed -i 's/requirements = python3,kivy/requirements = python3,kivy,kivymd/' buildozer.spec
+          sed -i 's/p4a.branch =/p4a.branch = master/' buildozer.spec
           
           # 显示配置
-          echo "=== Final buildozer.spec ==="
-          grep -E "^(title|package\.name|requirements)" buildozer.spec
-      
-      - name: Accept Android Licenses
-        run: |
-          mkdir -p $HOME/.android
-          echo 'count=1' >> $HOME/.android/repositories.cfg
-          yes | sdkmanager --licenses || true
-      
-      - name: Build APK
-        env:
-          P4A_JAVA_TOOL_OPTIONS: "-Xmx2048m"
-        run: |
-          # 显示环境
-          echo "Python: $(python --version)"
-          echo "Cython: $(cython --version)"
-          echo "Buildozer: $(buildozer --version)"
+          cat buildozer.spec
           
           # 构建
+          export P4A_JAVA_TOOL_OPTIONS="-Xmx2048m"
           buildozer android debug
       
       - name: Upload APK
