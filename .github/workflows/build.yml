@@ -34,36 +34,45 @@ jobs:
             libncursesw5-dev \
             cmake \
             libffi-dev \
-            libssl-dev \
-            libtool-bin \
-            libltdl-dev \
-            automake \
-            autopoint \
-            gettext
+            libssl-dev
       
-      - name: Fix libtool issue
+      - name: Install Python dependencies with specific versions
         run: |
-          # 修复 libtool 宏问题
-          sudo ln -s /usr/share/aclocal/libtool.m4 /usr/share/aclocal/ltoptions.m4 2>/dev/null || true
-          sudo ln -s /usr/share/aclocal/libtool.m4 /usr/share/aclocal/ltsugar.m4 2>/dev/null || true
-      
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install buildozer cython
+          # 强制卸载所有已安装的 Cython
+          pip uninstall -y Cython || true
+          
+          # 清理 pip 缓存
+          pip cache purge || true
+          
+          # 安装特定版本的 Cython
+          pip install --no-cache-dir Cython==0.29.36
+          
+          # 验证版本
+          cython --version
+          
+          # 安装 buildozer
+          pip install --no-cache-dir buildozer
       
       - name: Setup Buildozer
         run: |
+          # 清理任何旧构建
+          rm -rf .buildozer
+          rm -rf bin
+          
+          # 初始化
           buildozer init
           
-          # 修改配置
+          # 修改配置 - 关键：在 requirements 中指定 Cython 版本
           sed -i 's/title = My Application/title = Random Alarm/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = randomalarm/' buildozer.spec
           sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/' buildozer.spec
-          sed -i 's/requirements = python3,kivy/requirements = python3,kivy,kivymd/' buildozer.spec
+          
+          # 重要：在 buildozer.spec 的 requirements 中包含 Cython
+          sed -i 's/requirements = python3,kivy/requirements = python3,kivy,kivymd,Cython==0.29.36/' buildozer.spec
           
           # 显示配置
-          cat buildozer.spec
+          echo "=== Final buildozer.spec ==="
+          grep -E "^(title|package\.name|requirements)" buildozer.spec
       
       - name: Accept Android Licenses
         run: |
@@ -72,13 +81,17 @@ jobs:
           yes | sdkmanager --licenses || true
       
       - name: Build APK
+        env:
+          P4A_JAVA_TOOL_OPTIONS: "-Xmx2048m"
         run: |
-          # 清理旧构建
-          rm -rf .buildozer
+          # 显示环境
+          echo "Python: $(python --version)"
+          echo "Cython: $(cython --version)"
+          echo "Buildozer: $(buildozer --version)"
           
           # 构建
           buildozer android debug
-          
+      
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
