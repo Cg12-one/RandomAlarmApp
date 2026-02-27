@@ -1,0 +1,76 @@
+#:kivy 2.3.0
+
+MDScreen:
+    md_bg_color: 0.1, 0.1, 0.1, 1
+
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: 20
+        spacing: 20
+
+        MDLabel:
+            text: "随机午休闹钟"
+            font_name: 'Chinese'
+            font_style: "H4"
+            halign: "center"
+            theme_text_color: "Primary"
+            size_hint_y: None
+            height: self.texture_size[1]
+
+        MDBoxLayout:
+            orientation: "horizontal"
+            spacing: 10
+            size_hint_y: None
+            height: 100
+
+            MDTextField:
+                id: min_input
+                hint_text: "最小分钟 (如 30)"
+                mode: "rectangle"
+                input_filter: "int"
+                size_hint_x: 0.5
+
+            MDTextField:
+                id: max_input
+                hint_text: "最大分钟 (如 60)"
+                mode: "rectangle"
+                input_filter: "int"
+                size_hint_x: 0.5
+
+        MDLabel:
+            id: result_label
+            text: "等待设定..."
+            font_style: "H3"
+            halign: "center"
+            theme_text_color: "Custom"
+            text_color: 0, 1, 0, 1
+            size_hint_y: None
+            height: 100
+
+        MDLabel:
+            id: status_label
+            text: ""
+            font_style: "Body1"
+            halign: "center"
+            theme_text_color: "Hint"
+            size_hint_y: None
+            height: 50
+
+        MDBoxLayout:
+            orientation: "vertical"
+            spacing: 15
+            size_hint_y: None
+            height: 150
+            pos_hint: {"center_x": 0.5}
+
+            MDRaisedButton:
+                text: "开始随机闹钟"
+                md_bg_color: 0, 0.5, 1, 1
+                size_hint_x: 1
+                on_release: app.start_random_alarm(int(min_input.text) if min_input.text else 30, int(max_input.text) if max_input.text else 60)
+
+            MDRaisedButton:
+                text: "停止铃声"
+                md_bg_color: 1, 0.2, 0.2, 1
+                size_hint_x: 1
+                on_release: app.stop_sound()
